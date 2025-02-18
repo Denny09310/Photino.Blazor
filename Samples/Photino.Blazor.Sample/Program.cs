@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection;
 using System;
 
 namespace Photino.Blazor.Sample;
@@ -9,7 +9,7 @@ internal static class Program
     private static void Main(string[] args)
     {
         var builder = PhotinoBlazorAppBuilder.CreateDefault(args);
-        builder.RootComponents.Add<App>("app");
+        builder.RootComponents.Add<App>("#app");
 
         // register services inside container
         builder.Services.AddLogging();

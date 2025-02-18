@@ -1,4 +1,4 @@
-﻿// Licensed to the .NET Foundation under one or more agreements.
+// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using Microsoft.AspNetCore.Components;
@@ -47,7 +47,8 @@ public class PhotinoWebViewManager : WebViewManager
                 var messageOriginUrl = new Uri(AppBaseUri);
 
                 MessageReceived(messageOriginUrl, (string)message!);
-            }, message, CancellationToken.None, TaskCreationOptions.DenyChildAttach, sts);
+            }, 
+            message, CancellationToken.None, TaskCreationOptions.DenyChildAttach, sts);
         };
 
         //Create channel and start reader
@@ -95,16 +96,22 @@ public class PhotinoWebViewManager : WebViewManager
             while (true)
             {
                 var message = await reader.ReadAsync();
-                _window.SendWebMessage(message);
+                await _window.SendWebMessageAsync(message);
             }
         }
-        catch (ChannelClosedException) { }
+        catch (ChannelClosedException) 
+        {
+            // This exception can be ignored.
+        }
     }
 
     protected override ValueTask DisposeAsyncCore()
     {
         //complete channel
-        try { _channel.Writer.Complete(); } catch { }
+        try { _channel.Writer.Complete(); } catch 
+        {
+            // This exception can be ignored.
+        }
 
         //continue disposing
         return base.DisposeAsyncCore();

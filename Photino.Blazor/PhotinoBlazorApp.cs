@@ -1,38 +1,26 @@
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
 using Photino.NET;
 
 namespace Photino.Blazor;
 
-public partial class PhotinoBlazorApp
+public partial class PhotinoBlazorApp(IHost host)
 {
-    public IHostEnvironment Environment
-    {
-        get => Services.GetRequiredService<IHostEnvironment>();
-    }
+    private readonly IHost _host = host;
 
-    public PhotinoWindow MainWindow
-    {
-        get => Services.GetRequiredService<PhotinoWindow>();
-    }
+    public IHostEnvironment Environment => Services.GetRequiredService<IHostEnvironment>();
 
-    public BlazorWindowRootComponents RootComponents
-    {
-        get => Services.GetRequiredService<BlazorWindowRootComponents>();
-    }
+    public PhotinoWindow MainWindow => Services.GetRequiredService<PhotinoWindow>();
 
-    public IServiceProvider Services { get; private set; } = default!;
+    public IServiceProvider Services => _host.Services;
 
-    public PhotinoWebViewManager WindowManager
-    {
-        get => Services.GetRequiredService<PhotinoWebViewManager>();
-    }
+    public PhotinoWebViewManager WindowManager => Services.GetRequiredService<PhotinoWebViewManager>();
 
     public Stream HandleWebRequest(object? sender, string? scheme, string url, out string contentType)
         => WindowManager.HandleWebRequest(sender, scheme, url, out contentType!)!;
 
     public void Run()
     {
+        Initialize();
+
         if (string.IsNullOrWhiteSpace(MainWindow.StartUrl))
         {
             MainWindow.StartUrl = "/";
@@ -42,22 +30,26 @@ public partial class PhotinoBlazorApp
         MainWindow.WaitForClose();
     }
 
-    internal void Initialize(IServiceProvider services, RootComponentList rootComponents)
+    internal void Initialize()
     {
-        Services = services;
-
         ConfigureDefaults();
-
         MainWindow.RegisterCustomSchemeHandler(PhotinoWebViewManager.BlazorAppScheme, HandleWebRequest);
+
+        var windowManager = Services.GetRequiredService<PhotinoWebViewManager>();
+        var rootComponents = Services.GetRequiredService<PhotinoRootComponentsList>();
 
         foreach (var component in rootComponents)
         {
-            RootComponents.Add(component.Item1, component.Item2);
+            _ = windowManager.Dispatcher.InvokeAsync(async () =>
+            {
+                await windowManager.AddRootComponentAsync(component.ComponentType, component.Selector, component.Parameters);
+            });
         }
+
     }
 
     private void ConfigureDefaults() => MainWindow
-        .SetTitle("Photino.Blazor App")
+        .SetTitle("Photino Blazor App")
         .SetUseOsDefaultSize(false)
         .SetUseOsDefaultLocation(false)
         .SetWidth(1000)
