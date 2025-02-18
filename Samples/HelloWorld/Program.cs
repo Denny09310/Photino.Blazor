@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection;
 using Photino.Blazor;
 using System;
 
@@ -19,13 +19,13 @@ internal class Program
         var app = builder.Build();
 
         // customize window
-        app.MainWindow
+        app.Window
             .SetIconFile("favicon.ico")
             .SetTitle("Photino Hello World");
 
         AppDomain.CurrentDomain.UnhandledException += (sender, error) =>
         {
-            app.MainWindow.ShowMessage("Fatal exception", error.ExceptionObject.ToString());
+            app.Window.ShowMessage("Fatal exception", error.ExceptionObject.ToString());
         };
 
         app.Run();

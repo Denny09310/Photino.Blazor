@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection;
 using Photino.Blazor.MultiWindowSample.Components;
 using Photino.NET;
 using System;
@@ -40,7 +40,7 @@ internal class Program
 
         // customize window
         _windows.Add(
-            app.MainWindow
+            app.Window
                 .SetTitle(windowCreationArgs.Title)
                 .Load(windowCreationArgs.HtmlPath)
                 .RegisterWindowCreatedHandler((_, _) => CreateWindows(windowsToCreate, args))
@@ -53,7 +53,7 @@ internal class Program
 
         AppDomain.CurrentDomain.UnhandledException += (sender, error) =>
         {
-            app.MainWindow.ShowMessage("Fatal exception", error.ExceptionObject.ToString());
+            app.Window.ShowMessage("Fatal exception", error.ExceptionObject.ToString());
         };
 
         app.Run();

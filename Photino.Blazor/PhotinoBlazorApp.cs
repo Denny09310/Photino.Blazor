@@ -8,7 +8,7 @@ public partial class PhotinoBlazorApp(IHost host)
 
     public IHostEnvironment Environment => Services.GetRequiredService<IHostEnvironment>();
 
-    public PhotinoWindow MainWindow => Services.GetRequiredService<PhotinoWindow>();
+    public PhotinoWindow Window => Services.GetRequiredService<PhotinoWindow>();
 
     public IServiceProvider Services => _host.Services;
 
@@ -21,19 +21,19 @@ public partial class PhotinoBlazorApp(IHost host)
     {
         Initialize();
 
-        if (string.IsNullOrWhiteSpace(MainWindow.StartUrl))
+        if (string.IsNullOrWhiteSpace(Window.StartUrl))
         {
-            MainWindow.StartUrl = "/";
+            Window.StartUrl = "/";
         }
 
-        WindowManager.Navigate(MainWindow.StartUrl);
-        MainWindow.WaitForClose();
+        WindowManager.Navigate(Window.StartUrl);
+        Window.WaitForClose();
     }
 
     internal void Initialize()
     {
         ConfigureDefaults();
-        MainWindow.RegisterCustomSchemeHandler(PhotinoWebViewManager.BlazorAppScheme, HandleWebRequest);
+        Window.RegisterCustomSchemeHandler(PhotinoWebViewManager.BlazorAppScheme, HandleWebRequest);
 
         var windowManager = Services.GetRequiredService<PhotinoWebViewManager>();
         var rootComponents = Services.GetRequiredService<PhotinoRootComponentsList>();
@@ -48,7 +48,7 @@ public partial class PhotinoBlazorApp(IHost host)
 
     }
 
-    private void ConfigureDefaults() => MainWindow
+    private void ConfigureDefaults() => Window
         .SetTitle("Photino Blazor App")
         .SetUseOsDefaultSize(false)
         .SetUseOsDefaultLocation(false)
