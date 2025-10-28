@@ -1,6 +1,6 @@
 {
   "profiles": {
-    "Photino.Blazor.Sample": {
+    "Photino.Blazor.Template": {
       "commandName": "Project",
       "environmentVariables": {
         "DOTNET_ENVIRONMENT": "Development"

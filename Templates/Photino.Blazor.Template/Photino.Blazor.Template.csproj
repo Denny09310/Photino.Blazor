@@ -5,9 +5,9 @@
 		<TargetFramework>net8.0</TargetFramework>
 		<ApplicationIcon>favicon.ico</ApplicationIcon>
 	</PropertyGroup>
-
+	
 	<ItemGroup>
-		<ProjectReference Include="..\..\Photino.Blazor\Photino.Blazor.csproj" />
+	  <PackageReference Include="Photino.Blazor" Version="4.0.14-preview.2" />
 	</ItemGroup>
 
 	<ItemGroup>

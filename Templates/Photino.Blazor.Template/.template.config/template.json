@@ -1,0 +1,61 @@
+{
+  "$schema": "http://json.schemastore.org/template",
+  "author": "Dennis",
+  "classifications": [
+    "Web",
+    "Blazor",
+    "Desktop",
+    "Photino",
+    "C#"
+  ],
+  "identity": "Photino.Blazor.Project.Template",
+  "name": "Photino Blazor App",
+  "shortName": "photino-blazor",
+  "sourceName": "Photino.Blazor.Template",
+  "description": "A Blazor WebAssembly app hosted in a Photino desktop shell.",
+  "tags": {
+    "language": "C#",
+    "type": "project"
+  },
+  "preferNameDirectory": false,
+  "guids": [
+    "d7b9d6af-2d17-4e85-97af-1b5b8c2d68e9"
+  ],
+  "symbols": {
+    "framework": {
+      "type": "parameter",
+      "datatype": "choice",
+      "choices": [
+        {
+          "choice": "net8.0",
+          "description": ".NET 8.0"
+        },
+        {
+          "choice": "net9.0",
+          "description": ".NET 9.0"
+        }
+      ],
+      "defaultValue": "net8.0",
+      "replaces": "net8.0",
+      "description": "Target framework for the project."
+    }
+  },
+  "primaryOutputs": [
+    {
+      "path": "Photino.Blazor.Template.csproj"
+    }
+  ],
+  "postActions": [
+    {
+      "actionId": "9C7AF4E0-CBC3-11D6-8A05-00C04F79F802",
+      "description": "Restore NuGet packages required by this project.",
+      "manualInstructions": [
+        { "text": "Run 'dotnet restore'" }
+      ],
+      "args": {
+        "targetFiles": [ "Photino.Blazor.Template.csproj" ]
+      },
+      "continueOnError": true
+    }
+  ]
+}

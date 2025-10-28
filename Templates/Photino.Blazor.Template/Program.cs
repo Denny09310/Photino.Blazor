@@ -1,8 +1,9 @@
 using Microsoft.AspNetCore.Components.Web;
-using Photino.Blazor.Sample.Components;
+using Photino.Blazor;
 using System;
+using Photino.Blazor.Template.Components;
 
-namespace Photino.Blazor.Sample;
+namespace Photino.Blazor.Template;
 
 internal static class Program
 {
@@ -16,7 +17,7 @@ internal static class Program
         var app = builder.Build();
 
         app.Window.SetIconFile("favicon.ico")
-                  .SetTitle("Photino.Blazor.Sample")
+                  .SetTitle("Photino.Blazor.Template")
                   .SetNotificationsEnabled(false);
 
         AppDomain.CurrentDomain.UnhandledException += (sender, error) =>
