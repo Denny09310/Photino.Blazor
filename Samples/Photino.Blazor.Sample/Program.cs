@@ -16,7 +16,7 @@ internal static class Program
         var app = builder.Build();
 
         app.Window.SetIconFile("favicon.ico")
-                  .SetTitle("Photino Blazor Sample")
+                  .SetTitle("Photino.Blazor.Sample")
                   .SetNotificationsEnabled(false);
 
         AppDomain.CurrentDomain.UnhandledException += (sender, error) =>

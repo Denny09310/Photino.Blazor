@@ -3,28 +3,30 @@ using Microsoft.AspNetCore.Components;
 namespace Photino.Blazor;
 
 /// <summary>
-/// Defines a mapping between a root <see cref="IComponent"/> and a DOM element selector.
+/// Associates a Blazor root component type with a target selector in the DOM. Instances of
+/// <see cref="PhotinoRootComponent"/> are created via constructors that perform validation on the
+/// provided <see cref="Type"/> and selector values to ensure correct usage.
 /// </summary>
 public readonly struct PhotinoRootComponent
 {
     /// <summary>
-    /// Creates a new instance of <see cref="PhotinoRootComponent"/> with the provided <paramref name="componentType"/>
-    /// and <paramref name="selector"/>.
+    /// Initializes a new instance of the <see cref="PhotinoRootComponent"/> struct with the provided
+    /// component type and selector. The component type must implement <see cref="IComponent"/> and
+    /// both parameters must be non-null.
     /// </summary>
-    /// <param name="componentType">The component type. Must implement <see cref="IComponent"/>.</param>
-    /// <param name="selector">The DOM element selector or component registration id for the component.</param>
-    /// <exception cref="ArgumentNullException">Occurs when the <paramref name="componentType"/> or <paramref name="selector"/> parameters are null.</exception>
-    /// <exception cref="ArgumentException">Occurs when <paramref name="componentType"/> does not inherit from <see cref="IComponent"/>.</exception>
+    /// <param name="componentType">The type of the root component to render.</param>
+    /// <param name="selector">The CSS selector or registration id for the DOM element.</param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="componentType"/> or <paramref name="selector"/> is null.</exception>
+    /// <exception cref="ArgumentException">Thrown when <paramref name="componentType"/> does not implement <see cref="IComponent"/>.</exception>
     public PhotinoRootComponent(Type componentType, string selector)
     {
         ArgumentNullException.ThrowIfNull(componentType);
+        ArgumentNullException.ThrowIfNull(selector);
 
         if (!typeof(IComponent).IsAssignableFrom(componentType))
         {
             throw new ArgumentException($"The type '{componentType.Name}' must implement {nameof(IComponent)} to be used as a root component.", nameof(componentType));
         }
-
-        ArgumentNullException.ThrowIfNull(selector);
 
         ComponentType = componentType;
         Selector = selector;
@@ -32,29 +34,30 @@ public readonly struct PhotinoRootComponent
     }
 
     /// <summary>
-    /// Creates a new instance of <see cref="PhotinoRootComponent"/> with the provided <paramref name="componentType"/>,
-    /// <paramref name="selector"/>, and <paramref name="parameters"/>.
+    /// Initializes a new instance of the <see cref="PhotinoRootComponent"/> struct with the provided
+    /// component type, selector, and component parameters. This overload delegates to the other
+    /// constructor and then sets the <see cref="Parameters"/> property.
     /// </summary>
-    /// <param name="componentType">The component type. Must implement <see cref="IComponent"/>.</param>
-    /// <param name="selector">The DOM element selector or component registration id for the component.</param>
-    /// <param name="parameters">The parameters to pass to the component,</param>
+    /// <param name="componentType">The type of the root component to render.</param>
+    /// <param name="selector">The CSS selector or registration id for the DOM element.</param>
+    /// <param name="parameters">A <see cref="ParameterView"/> containing parameters to pass to the root component.</param>
     public PhotinoRootComponent(Type componentType, string selector, ParameterView parameters) : this(componentType, selector)
     {
         Parameters = parameters;
     }
 
     /// <summary>
-    /// Gets the component type.
+    /// Gets the component type to render.
     /// </summary>
     public Type ComponentType { get; }
 
     /// <summary>
-    /// Gets the parameters to pass to the root component.
+    /// Gets the parameters passed to the root component.
     /// </summary>
     public ParameterView Parameters { get; }
 
     /// <summary>
-    /// Gets the DOM element selector.
+    /// Gets the CSS selector or registration id of the DOM element where the component will be rendered.
     /// </summary>
     public string Selector { get; }
 }

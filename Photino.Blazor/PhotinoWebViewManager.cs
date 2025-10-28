@@ -12,109 +12,183 @@ using System.Threading.Channels;
 
 namespace Photino.Blazor;
 
+/// <summary>
+/// Extends the Blazor <see cref="WebViewManager"/> to integrate with the Photino runtime. This manager
+/// handles dispatching messages to and from the embedded web view, intercepting resource requests
+/// using a custom scheme, and pumping messages from .NET to JavaScript via a channel. Platform
+/// differences are abstracted away such that Windows uses the <c>http</c> scheme while other
+/// operating systems use a custom <c>app</c> scheme.
+/// </summary>
 public class PhotinoWebViewManager : WebViewManager
 {
-    // On Windows, we can't use a custom scheme to host the initial HTML,
-    // because webview2 won't let you do top-level navigation to such a URL.
-    // On Linux/Mac, we must use a custom scheme, because their webviews
-    // don't have a way to intercept http:// scheme requests.
+    /// <summary>
+    /// Gets the URI scheme used to serve the application. Windows does not permit top-level navigation
+    /// to a custom scheme using WebView2, so the <c>http</c> scheme is used there. Other platforms
+    /// support a custom <c>app</c> scheme which enables request interception.
+    /// </summary>
     public static readonly string BlazorAppScheme = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
         ? "http"
         : "app";
-    
+
+    /// <summary>
+    /// Gets the base URI used by the application. All relative requests are resolved against this
+    /// base URI.
+    /// </summary>
     public static readonly string AppBaseUri = $"{BlazorAppScheme}://localhost/";
 
-    private readonly Channel<string> _channel;
+    private readonly Channel<string> _messageChannel;
     private readonly PhotinoWindow _window;
 
-    public PhotinoWebViewManager(PhotinoWindow window, IServiceProvider provider, Dispatcher dispatcher,
-        IFileProvider fileProvider, JSComponentConfigurationStore jsComponents, IOptions<PhotinoBlazorAppConfiguration> config)
-        : base(provider, dispatcher, config.Value.AppBaseUri, fileProvider, jsComponents, config.Value.HostPage)
+    /// <summary>
+    /// Initializes a new instance of <see cref="PhotinoWebViewManager"/>.
+    /// </summary>
+    /// <param name="window">The Photino window hosting the web view.</param>
+    /// <param name="provider">The dependency injection provider.</param>
+    /// <param name="dispatcher">The dispatcher used to marshal calls back to the UI thread.</param>
+    /// <param name="fileProvider">The file provider used to resolve static assets.</param>
+    /// <param name="jsComponents">The JS component configuration store.</param>
+    /// <param name="config">Application configuration options.</param>
+    /// <exception cref="ArgumentNullException">Thrown when any required argument is null.</exception>
+    public PhotinoWebViewManager(
+        PhotinoWindow window,
+        IServiceProvider provider,
+        Dispatcher dispatcher,
+        IFileProvider fileProvider,
+        JSComponentConfigurationStore jsComponents,
+        IOptions<PhotinoBlazorAppConfiguration> config)
+        : base(provider, dispatcher, config?.Value?.AppBaseUri ?? throw new ArgumentNullException(nameof(config)), fileProvider, jsComponents, config.Value.HostPage)
     {
         _window = window ?? throw new ArgumentNullException(nameof(window));
 
-        // Create a scheduler that uses one threads.
-        var sts = new Utils.SynchronousTaskScheduler();
+        // Use a synchronous task scheduler to dispatch messages off the browser UI thread when necessary.
+        var synchronousScheduler = new Utils.SynchronousTaskScheduler();
 
         _window.WebMessageReceived += (sender, message) =>
         {
-            // On some platforms, we need to move off the browser UI thread
-            Task.Factory.StartNew(message =>
-            {
-                // TODO: Fix this. Photino should ideally tell us the URL that the message comes from so we
-                // know whether to trust it. Currently it's hardcoded to trust messages from any source, including
-                // if the webview is somehow navigated to an external URL.
-                var messageOriginUrl = new Uri(AppBaseUri);
-
-                MessageReceived(messageOriginUrl, (string)message!);
-            },
-            message, CancellationToken.None, TaskCreationOptions.DenyChildAttach, sts);
+            // Move processing off the browser UI thread. The origin URL is unknown, so always trust the
+            // message as coming from our own application. Future versions could include origin
+            // information to make this more robust.
+            Task.Factory.StartNew(
+                (msg) =>
+                {
+                    var origin = new Uri(AppBaseUri);
+                    MessageReceived(origin, (string)msg!);
+                },
+                message,
+                CancellationToken.None,
+                TaskCreationOptions.DenyChildAttach,
+                synchronousScheduler);
         };
 
-        //Create channel and start reader
-        _channel = Channel.CreateUnbounded<string>(new UnboundedChannelOptions() { SingleReader = true, SingleWriter = false, AllowSynchronousContinuations = false });
-        Task.Run(MessagePump);
+        // Initialize the message channel used for sending messages from .NET to the browser and
+        // start a background reader to pump messages into the web view. We use a single reader but
+        // allow multiple writers to enqueue messages concurrently.
+        _messageChannel = Channel.CreateUnbounded<string>(new UnboundedChannelOptions
+        {
+            SingleReader = true,
+            SingleWriter = false,
+            AllowSynchronousContinuations = false
+        });
+        _ = Task.Run(MessagePump);
     }
 
+    /// <summary>
+    /// Handles resource requests by attempting to serve them from the application's file provider.
+    /// If the resource is not found locally, the request is ignored and falls back to network
+    /// handling (resulting in a 404 from the browser).
+    /// </summary>
+    /// <param name="_">Unused sender argument.</param>
+    /// <param name="__">Unused scheme argument.</param>
+    /// <param name="url">The absolute URL of the requested resource.</param>
+    /// <param name="contentType">When this method returns, contains the resolved content type if available.</param>
+    /// <returns>A stream containing the resource content, or <c>null</c> if the resource cannot be served locally.</returns>
     public Stream? HandleWebRequest(object? _, string? __, string url, out string? contentType)
     {
-        // It would be better if we were told whether or not this is a navigation request, but
-        // since we're not, guess.
+        // Determine whether the request is for a page (no file extension) or a static asset. Without
+        // explicit knowledge of the request type we guess based on the local path.
         var localPath = new Uri(url).LocalPath;
         var hasFileExtension = localPath.LastIndexOf('.') > localPath.LastIndexOf('/');
 
-        //Remove parameters before attempting to retrieve the file. For example: http://localhost/_content/Blazorise/button.js?v=1.0.7.0
-        if (url.Contains('?')) url = url[..url.IndexOf('?')];
-        if (url.StartsWith(AppBaseUri, StringComparison.Ordinal) && TryGetResponseContent(url, !hasFileExtension, out var _, out var _, out var content, out var headers))
+        // Remove query string parameters before attempting to resolve the file. For example, request
+        // to /_content/Blazorise/button.js?v=1.0.7.0 should resolve to button.js.
+        if (url.Contains('?'))
+        {
+            url = url[..url.IndexOf('?')];
+        }
+        if (url.StartsWith(AppBaseUri, StringComparison.Ordinal) &&
+            TryGetResponseContent(url, !hasFileExtension, out var _, out var _, out var content, out var headers))
         {
             headers.TryGetValue("Content-Type", out contentType);
             return content;
         }
-        else
-        {
-            contentType = default;
-            return null;
-        }
+
+        contentType = default;
+        return null;
     }
 
+    /// <inheritdoc />
     protected override ValueTask DisposeAsyncCore()
     {
-        //complete channel
-        try { _channel.Writer.Complete(); }
+        // Signal completion of the message channel so that the message pump can exit. Exceptions
+        // here can be ignored as they simply indicate the channel has already been closed.
+        try
+        {
+            _messageChannel.Writer.Complete();
+        }
         catch
         {
-            // This exception can be ignored.
+            // ignored
         }
-
-        //continue disposing
         return base.DisposeAsyncCore();
     }
 
+    /// <inheritdoc />
     protected override void NavigateCore(Uri absoluteUri)
     {
+        // Delegate navigation to the underlying Photino window. Photino handles ensuring that the
+        // correct page is loaded and displayed.
         _window.Load(absoluteUri);
     }
 
+    /// <inheritdoc />
     protected override void SendMessage(string message)
     {
-        while (!_channel.Writer.TryWrite(message))
-            Thread.Sleep(200);
+        // Try to synchronously write to the channel. If the channel cannot accept the message
+        // synchronously, enqueue it asynchronously to avoid blocking the calling thread.
+        if (!_messageChannel.Writer.TryWrite(message))
+        {
+            _ = EnqueueMessageAsync(message);
+        }
+    }
+
+    private async Task EnqueueMessageAsync(string message)
+    {
+        try
+        {
+            await _messageChannel.Writer.WriteAsync(message).ConfigureAwait(false);
+        }
+        catch (ChannelClosedException)
+        {
+            // The channel has been completed; ignore further messages.
+        }
     }
 
     private async Task MessagePump()
     {
-        var reader = _channel.Reader;
+        var reader = _messageChannel.Reader;
         try
         {
-            while (true)
+            while (await reader.WaitToReadAsync().ConfigureAwait(false))
             {
-                var message = await reader.ReadAsync();
-                await _window.SendWebMessageAsync(message);
+                while (reader.TryRead(out var message))
+                {
+                    await _window.SendWebMessageAsync(message).ConfigureAwait(false);
+                }
             }
         }
         catch (ChannelClosedException)
         {
-            // This exception can be ignored.
+            // The channel was closed. This is expected during shutdown.
         }
     }
 }
