@@ -33,7 +33,7 @@ internal class PhotinoDispatcher : Dispatcher
     /// <inheritdoc />
     public override Task InvokeAsync(Action workItem)
     {
-        if (workItem == null) throw new ArgumentNullException(nameof(workItem));
+        ArgumentNullException.ThrowIfNull(workItem);
         return CheckAccess()
             ? ExecuteSynchronously(workItem)
             : _synchronizationContext.InvokeAsync(workItem);
@@ -42,7 +42,7 @@ internal class PhotinoDispatcher : Dispatcher
     /// <inheritdoc />
     public override Task InvokeAsync(Func<Task> workItem)
     {
-        if (workItem == null) throw new ArgumentNullException(nameof(workItem));
+        ArgumentNullException.ThrowIfNull(workItem);
         return CheckAccess()
             ? workItem()
             : _synchronizationContext.InvokeAsync(workItem);
@@ -51,7 +51,7 @@ internal class PhotinoDispatcher : Dispatcher
     /// <inheritdoc />
     public override Task<TResult> InvokeAsync<TResult>(Func<TResult> workItem)
     {
-        if (workItem == null) throw new ArgumentNullException(nameof(workItem));
+        ArgumentNullException.ThrowIfNull(workItem);
         return CheckAccess()
             ? Task.FromResult(workItem())
             : _synchronizationContext.InvokeAsync(workItem);
@@ -60,7 +60,7 @@ internal class PhotinoDispatcher : Dispatcher
     /// <inheritdoc />
     public override Task<TResult> InvokeAsync<TResult>(Func<Task<TResult>> workItem)
     {
-        if (workItem == null) throw new ArgumentNullException(nameof(workItem));
+        ArgumentNullException.ThrowIfNull(workItem);
         return CheckAccess()
             ? workItem()
             : _synchronizationContext.InvokeAsync(workItem);

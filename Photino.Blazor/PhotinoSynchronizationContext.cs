@@ -202,6 +202,38 @@ internal class PhotinoSynchronizationContext : SynchronizationContext
         return completion.Task;
     }
 
+    // asynchronously runs the callback
+    //
+    // NOTE: this must always run async. It's not legal here to execute the work item synchronously.
+    public override void Post(SendOrPostCallback d, object? state)
+    {
+        lock (_state.Lock)
+        {
+            _state.Task = Enqueue(_state.Task, d, state, forceAsync: true);
+        }
+    }
+
+    // synchronously runs the callback
+    public override void Send(SendOrPostCallback d, object? state)
+    {
+        Task antecedent;
+        var completion = new TaskCompletionSource<object?>();
+
+        lock (_state.Lock)
+        {
+            antecedent = _state.Task;
+            _state.Task = completion.Task;
+        }
+
+        // We have to block. That's the contract of Send - we don't expect this to be used
+        // in many scenarios in Components.
+        //
+        // Using Wait here is ok because the antecedent task will never throw.
+        antecedent.Wait();
+
+        ExecuteSynchronously(completion, d, state);
+    }
+
     private void DispatchException(Exception ex)
     {
         UnhandledException?.Invoke(this, new UnhandledExceptionEventArgs(ex, isTerminating: false));

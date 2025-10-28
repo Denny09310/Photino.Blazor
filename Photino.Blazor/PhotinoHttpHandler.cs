@@ -42,7 +42,7 @@ public class PhotinoHttpHandler : DelegatingHandler
     /// <inheritdoc />
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
-        if (request == null) throw new ArgumentNullException(nameof(request));
+        ArgumentNullException.ThrowIfNull(request);
 
         // Always check if the requested resource can be served from within the application itself.
         // This avoids unnecessary network calls for resources such as the host page or static assets.
